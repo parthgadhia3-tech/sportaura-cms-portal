@@ -4,30 +4,23 @@ import psycopg2
 @st.cache_resource
 def get_db_connection():
     """
-    Establishes and caches the database connection using explicit parameters
-    and enforcing 'sslmode=require' for secure Supabase connections.
+    Establishes and caches the database connection using the full DSN URL.
+    This method often resolves hostname translation issues in deployment environments.
     """
     try:
-        # Retrieve the individual parameters from secrets
-        supabase_config = st.secrets["connections"]["supabase"]
+        # Retrieve the single DSN URL from secrets
+        supabase_dsn = st.secrets["connections"]["supabase"]["url"]
         
-        # Connect using individual, explicit keyword arguments, including sslmode
-        conn = psycopg2.connect(
-            host=supabase_config["host"],
-            database=supabase_config["database"],
-            user=supabase_config["user"],
-            password=supabase_config["password"],
-            port=supabase_config["port"],
-            sslmode=supabase_config["sslmode"]
-        )
+        # Connect using the DSN string
+        conn = psycopg2.connect(supabase_dsn)
         return conn
     except KeyError as e:
-        # This handles if any of the 6 required keys (host, db, user, pass, port, sslmode) are missing from Streamlit secrets
-        st.error(f"Configuration Error: Streamlit secrets is missing a required database key: {e}. Please ensure you have all 6 keys configured.")
+        # This handles if the 'url' key is missing from Streamlit secrets
+        st.error(f"Configuration Error: Streamlit secrets is missing the required database key 'url': {e}. Please ensure you have configured the DSN URL.")
         return None
     except Exception as e:
-        # This handles general connection failures (like wrong password or temporary network issues)
-        st.error(f"Error connecting to database: {e}")
+        # This handles general connection failures
+        st.error(f"Error connecting to database via DSN URL: {e}")
         return None
 
 def submit_trivia_question(conn, question_text, correct_answer, option_2, option_3):
