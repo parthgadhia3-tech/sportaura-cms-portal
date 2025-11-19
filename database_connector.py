@@ -4,23 +4,31 @@ import psycopg2
 @st.cache_resource
 def get_db_connection():
     """
-    Establishes and caches the database connection using the full DSN URL.
-    This method often resolves hostname translation issues in deployment environments.
+    Establishes and caches the database connection using all six explicit parameters 
+    (including sslmode=require) read from Streamlit secrets.
     """
     try:
-        # Retrieve the single DSN URL from secrets
-        supabase_dsn = st.secrets["connections"]["supabase"]["url"]
+        # 1. Retrieve the individual parameters from secrets
+        supabase_config = st.secrets["connections"]["supabase"]
         
-        # Connect using the DSN string
-        conn = psycopg2.connect(supabase_dsn)
+        # 2. Connect using individual, explicit keyword arguments
+        # This is the most reliable way to enforce 'sslmode=require'
+        conn = psycopg2.connect(
+            host=supabase_config["host"],
+            database=supabase_config["database"],
+            user=supabase_config["user"],
+            password=supabase_config["password"],
+            port=supabase_config["port"],
+            sslmode=supabase_config["sslmode"] 
+        )
         return conn
     except KeyError as e:
-        # This handles if the 'url' key is missing from Streamlit secrets
-        st.error(f"Configuration Error: Streamlit secrets is missing the required database key 'url': {e}. Please ensure you have configured the DSN URL.")
+        # Handles missing secret keys
+        st.error(f"Configuration Error: Streamlit secrets is missing a required database key: {e}. Please ensure you have all 6 keys configured.")
         return None
     except Exception as e:
-        # This handles general connection failures
-        st.error(f"Error connecting to database via DSN URL: {e}")
+        # Handles general connection failures
+        st.error(f"Error connecting to database: {e}")
         return None
 
 def submit_trivia_question(conn, question_text, correct_answer, option_2, option_3):
