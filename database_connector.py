@@ -1,18 +1,20 @@
 import streamlit as st
 import psycopg2
+from typing import Optional
 
+# Caches the connection object to reuse it across Reruns
 @st.cache_resource
-def get_db_connection():
+def get_db_connection() -> Optional[psycopg2.extensions.connection]:
     """
     Establishes and caches the database connection using all six explicit parameters 
     (including sslmode=require) read from Streamlit secrets.
     """
     try:
-        # 1. Retrieve the individual parameters from secrets
+        # Retrieve the individual parameters from secrets
         supabase_config = st.secrets["connections"]["supabase"]
         
-        # 2. Connect using individual, explicit keyword arguments
-        # This is the most reliable way to enforce 'sslmode=require'
+        # Connect using individual, explicit keyword arguments
+        # This is CRITICAL for reliability and ensuring sslmode=require is used.
         conn = psycopg2.connect(
             host=supabase_config["host"],
             database=supabase_config["database"],
@@ -21,19 +23,22 @@ def get_db_connection():
             port=supabase_config["port"],
             sslmode=supabase_config["sslmode"] 
         )
+        st.success("Database connection successful! You are now connected to the Supabase database.")
         return conn
+        
     except KeyError as e:
         # Handles missing secret keys
         st.error(f"Configuration Error: Streamlit secrets is missing a required database key: {e}. Please ensure you have all 6 keys configured.")
         return None
     except Exception as e:
-        # Handles general connection failures
+        # Handles general connection failures (like the 'could not translate host name' error)
         st.error(f"Error connecting to database: {e}")
         return None
 
 def submit_trivia_question(conn, question_text, correct_answer, option_2, option_3):
     """Inserts a new trivia question into the 'trivia' table."""
     if not conn:
+        st.warning("Database connection unavailable for submission.")
         return False
     
     cursor = conn.cursor()
@@ -44,6 +49,7 @@ def submit_trivia_question(conn, question_text, correct_answer, option_2, option
     try:
         cursor.execute(sql, (question_text, correct_answer, option_2, option_3))
         conn.commit()
+        st.success("Question submitted successfully!")
         return True
     except Exception as e:
         st.error(f"Error submitting data: {e}")
