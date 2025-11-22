@@ -1,3 +1,5 @@
 streamlit
-psycopg2-binary
 supabase
+psycopg2-binary
+httpx
+python-dotenv
